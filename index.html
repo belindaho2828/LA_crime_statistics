@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Sample and Crime Data</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        #map {
+            height: 500px;
+            width: 100%;
+        }
+        #chart-container {
+            width: 80%;
+            margin: 0 auto;
+        }
+        canvas {
+            margin: 20px 0;
+        }
+        .legend {
+            background: white;
+            padding: 10px;
+            line-height: 1.5;
+            color: #333;
+            resize: both;
+            overflow: auto;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Random Sample and Crime Data</h1>
+    <button id="getSampleBtn">Get Random Sample</button>
+    <label for="startDate">Start Date:</label>
+    <input type="date" id="startDate">
+    <label for="endDate">End Date:</label>
+    <input type="date" id="endDate">
+    <button id="getCrimeDataBtn">Get Crime Data</button>
+    <button id="filterDataBtn">Filter Data</button>
+    
+    <p id="sample"></p>
+    <div id="crimeData"></div>
+    <div id="map"></div>
+
+    <div id="chart-container">
+        <canvas id="sampleChart"></canvas>
+        <canvas id="crimeChart"></canvas>
+    </div>
+
+    <script>
+        let crimeData = [];
+        let filteredCrimeData = [];
+        let crimeStats = {};
+
+        // Initialize the map
+        var map = L.map('map').setView([34.0522, -118.2437], 10); // Centered on Los Angeles
+
+        // Add a tile layer to the map
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Add a legend to the map
+        var legend = L.control({ position: 'bottomright' });
+
+        legend.onAdd = function (map) {
+            var div = L.DomUtil.create('div', 'legend');
+            div.innerHTML += '<h4>Crime Data Legend</h4>';
+            div.innerHTML += '<p>Click on a crime type to view more information.</p>';
+            return div;
+        };
+
+        legend.addTo(map);
+
+        // Unique color for each crime type
+        function getColor(crimeType) {
+            const colors = [
+                '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'
+            ];
+            const crimeTypes = Array.from(new Set(crimeData.map(crime => crime.crm_cd_desc)));
+            const index = crimeTypes.indexOf(crimeType);
+            return colors[index % colors.length];
+        }
+
+        // Function to update legend
+        function updateLegend() {
+            const legendDiv = document.querySelector('.legend');
+            legendDiv.innerHTML = '<h4>Crime Data Legend</h4><p>Click on a crime type to view more information.</p>'; // Reset legend
+            const crimeTypes = Array.from(new Set(filteredCrimeData.map(crime => crime.crm_cd_desc)));
+            crimeTypes.forEach(crimeType => {
+                const color = getColor(crimeType);
+                const item = document.createElement('div');
+                item.className = 'legend-item';
+                item.innerHTML = `<div class="legend-color" style="background: ${color};"></div>${crimeType} (${crimeStats[crimeType] || 0})`;
+                item.addEventListener('click', () => showCrimeInfo(crimeType));
+                legendDiv.appendChild(item);
+            });
+        }
+
+        // Function to show crime info
+        function showCrimeInfo(crimeType) {
+            const crimeCount = crimeStats[crimeType];
+            alert(`Crime Type: ${crimeType}\nNumber of Incidents: ${crimeCount}`);
+        }
+
+        // Function to format time
+        function formatTime(timeStr) {
+            if (timeStr.length !== 4) return timeStr;
+            const hours = parseInt(timeStr.substring(0, 2));
+            const minutes = timeStr.substring(2);
+            const suffix = hours >= 12 ? 'PM' : 'AM';
+            const formattedHours = ((hours + 11) % 12 + 1);
+            return `${formattedHours}:${minutes} ${suffix}`;
+        }
+
+        // Function to filter crime data by date range
+        function filterCrimeData(startDate, endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            filteredCrimeData = crimeData.filter(crime => {
+                const crimeDate = new Date(crime.date_occ);
+                return crimeDate >= start && crimeDate <= end;
+            });
+            crimeStats = filteredCrimeData.reduce((counts, crime) => {
+                counts[crime.crm_cd_desc] = (counts[crime.crm_cd_desc] || 0) + 1;
+                return counts;
+            }, {});
+            updateLegend();
+            populateMap();
+        }
+
+        document.getElementById('getSampleBtn').addEventListener('click', function() {
+            fetch('/random-sample')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('sample').innerText = 'Random Sample: ' + data.join(', ');
+
+                    // Create the sample chart
+                    var ctx = document.getElementById('sampleChart').getContext('2d');
+                    new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: data.map((_, index) => `Sample ${index + 1}`),
+                            datasets: [{
+                                label: 'Random Sample',
+                                data: data,
+                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            }
+                        }
+                    });
+                })
+                .catch(error => console.error('Error:', error));
+        });
+
+        document.getElementById('getCrimeDataBtn').addEventListener('click', function() {
+            fetch('/crime-data')
+                .then(response => response.json())
+                .then(data => {
+                    crimeData = data; // Store the crime data
+                    const startDate = document.getElementById('startDate').value;
+                    const endDate = document.getElementById('endDate').value;
+                    if (startDate && endDate) {
+                        filterCrimeData(startDate, endDate);
+                    } else {
+                        filteredCrimeData = crimeData;
+                        crimeStats = crimeData.reduce((counts, crime) => {
+                            counts[crime.crm_cd_desc] = (counts[crime.crm_cd_desc] || 0) + 1;
+                            return counts;
+                        }, {});
+                        updateLegend();
+                        populateMap();
+                    }
+
+                    let crimeDataDiv = document.getElementById('crimeData');
+                    crimeDataDiv.innerHTML = '<pre>' + JSON.stringify(filteredCrimeData, null, 2) + '</pre>';
+
+                    // Create the crime chart
+                    var ctx = document.getElementById('crimeChart').getContext('2d');
+                    var crimeCounts = Object.values(crimeStats);
+                    new Chart(ctx, {
+                        type: 'pie',
+                        data: {
+                            labels: Object.keys(crimeStats),
+                            datasets: [{
+                                label: 'Crime Types',
+                                data: crimeCounts,
+                                backgroundColor: Object.keys(crimeStats).map(crimeType => getColor(crimeType)),
+                                borderColor: Object.keys(crimeStats).map(crimeType => getColor(crimeType)),
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true
+                        }
+                    });
+                })
+                .catch(error => console.error('Error:', error));
+        });
+
+        document.getElementById('filterDataBtn').addEventListener('click', function() {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            if (!startDate || !endDate) {
+                alert('Please select both start and end dates.');
+                return;
+            }
+            filterCrimeData(startDate, endDate);
+        });
+
+        function populateMap() {
+            // Clear existing markers
+            map.eachLayer(function (layer) {
+                if (layer instanceof L.Marker) {
+                    map.removeLayer(layer);
+                }
+            });
+
+            // Add markers to the map
+            filteredCrimeData.forEach(function(crime) {
+                if (crime.lat && crime.lon) {
+                    const lat = parseFloat(crime.lat);
+                    const lon = parseFloat(crime.lon);
+                    const color = getColor(crime.crm_cd_desc);
+                    const time = formatTime(crime.time_occ);
+
+                    // Debug output: Check parsed coordinates
+                    console.log(`Adding marker at lat: ${lat}, lon: ${lon}, color: ${color}, time: ${time}`);
+
+                    L.marker([lat, lon], {
+                        icon: L.divIcon({ 
+                            className: 'marker', 
+                            html: `<i style="background: ${color}; border-radius: 50%; width: 10px; height: 10px; display: block;"></i>` 
+                        })
+                    }).addTo(map)
+                    .bindPopup(`Crime: ${crime.crm_cd_desc}<br>Date: ${crime.date_occ}<br>Time: ${time}`);
+                } else {
+                    console.warn('Missing coordinates for crime:', crime);
+                }
+            });
+        }
+
+        document.getElementById('populateMapBtn').addEventListener('click', function() {
+            if (filteredCrimeData.length === 0) {
+                alert('Please fetch and filter the crime data first.');
+                return;
+            }
+            populateMap();
+        });
+    </script>
+</body>
+</html>
