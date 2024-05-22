@@ -1,0 +1,40 @@
+/* Apply a fixed height to the body to enable scrolling */
+body {
+    height: 100vh; 
+    overflow-y: auto;
+    padding-right: 17px; 
+}
+
+/* Apply padding to the body to prevent content from being hidden behind the scrollbar */
+body::before {
+    content: '';
+    display: block;
+    width: 1px;
+    height: 100%;
+    float: left;
+    margin-left: -1px;
+}
+
+/* Adjust the margin and padding of the elements as needed */
+#plot,
+#bar,
+#bar-by-type {
+    margin-bottom: 50px; 
+}
+
+/* style the scrollbar */
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
