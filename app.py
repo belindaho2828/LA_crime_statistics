@@ -1,5 +1,9 @@
-from flask import Flask, jsonify, request
 import requests
+
+from flask import Flask, render_template, jsonify, Response, request
+from sqlalchemy import create_engine, text, inspect
+from sqlalchemy.engine.row import Row
+import psycopg2
 
 app = Flask(__name__)
 
@@ -9,6 +13,22 @@ CRIME_DATA_URL = 'https://data.lacity.org/resource/2nrs-mtv8.json'
 @app.route('/')
 def home():
     return app.send_static_file('index.html')
+
+@app.route('/data/<int:offset>')
+def data(offset):
+    offset = offset*30000
+    conn = psycopg2.connect(
+        dbname="la_crimes_db",
+        user="postgres",
+        password="postgres",
+        host="localhost",
+        port="5432"
+    )
+    with conn.cursor() as cur:
+        cur.execute("SELECT * FROM crimes_table LIMIT 30000 OFFSET %s", (offset,))
+        data = cur.fetchall()
+    return jsonify(data)
+
 
 @app.route('/random-sample')
 def random_sample():
