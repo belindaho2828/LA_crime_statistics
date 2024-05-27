@@ -1,3 +1,11 @@
+
+from flask import Flask, render_template, jsonify, Response, request
+from sqlalchemy import create_engine, text, inspect
+from sqlalchemy.engine.row import Row
+import psycopg2
+import requests
+
+
 from flask import Flask, render_template, jsonify, Response, request
 from sqlalchemy import create_engine, text, inspect
 from sqlalchemy.engine.row import Row
@@ -35,6 +43,22 @@ def bar_graph(offset):
         for row in data:
             data_kv.append(dict(zip(columns, row)))
     return jsonify(data_kv)
+
+@app.route('/data/<int:offset>')
+def data(offset):
+    offset = offset*30000
+    conn = psycopg2.connect(
+        dbname="la_crimes_db",
+        user="postgres",
+        password="postgres",
+        host="localhost",
+        port="5432"
+    )
+    with conn.cursor() as cur:
+        cur.execute("SELECT * FROM crimes_table LIMIT 30000 OFFSET %s", (offset,))
+        data = cur.fetchall()
+    return jsonify(data)
+
 
 @app.route('/random-sample')
 def random_sample():
