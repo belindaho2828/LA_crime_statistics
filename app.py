@@ -5,12 +5,6 @@ from sqlalchemy.engine.row import Row
 import psycopg2
 import requests
 
-
-from flask import Flask, render_template, jsonify, Response, request
-from sqlalchemy import create_engine, text, inspect
-from sqlalchemy.engine.row import Row
-import psycopg2
-
 app = Flask(__name__)
 engine = create_engine('postgresql://postgres:postgres@localhost:5432/la_crimes_db', connect_args = {'connect_timeout':4})
 
