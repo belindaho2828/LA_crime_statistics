@@ -1,16 +1,34 @@
-const url = 'http://127.0.0.1:5000/data';
+const urls = [
+    'http://127.0.0.1:5000/data/pie_chart/0',
+    'http://127.0.0.1:5000/data/pie_chart/1',
+    'http://127.0.0.1:5000/data/pie_chart/2',
+    'http://127.0.0.1:5000/data/pie_chart/3',
+    'http://127.0.0.1:5000/data/pie_chart/4',
+    'http://127.0.0.1:5000/data/pie_chart/5',
+    'http://127.0.0.1:5000/data/pie_chart/6',
+    'http://127.0.0.1:5000/data/pie_chart/7',
+    'http://127.0.0.1:5000/data/pie_chart/8',
+    'http://127.0.0.1:5000/data/pie_chart/9'
+  ];
 
-// Test the API
-d3.json(url).then((test_data) => {
-  console.log(test_data);
-  buildCrimePieByStatus();
-  buildCrimePieByGender();
-  buildCrimePieByAge();
-  buildCrimePieByDescent();
-});
+  function loadData (){
+    Promise.all(urls.map(url => d3.json(url)))
+      .then(dataArray => {
+        // dataArray is an array of arrays, where each inner array is the data from one URL
+        const combinedData = dataArray.flat(); // flatten the array of arrays into a single array
+        // process the combined data here
+        console.log(combinedData);
+        buildCrimePieByStatus(combinedData);
+        buildCrimePieByGender(combinedData);
+        buildCrimePieByAge(combinedData);
+        buildCrimePieByDescent(combinedData);
+      })
+      .catch(error => {
+        console.error(error);
+      });
+  }
 
-function buildCrimePieByStatus() {
-  d3.json(url).then((crimeData) => {
+function buildCrimePieByStatus(crimeData) {
     let statusCounts = {};
 
     crimeData.forEach(crime => {
@@ -80,17 +98,9 @@ function buildCrimePieByStatus() {
       data: chartData,
       options: options
     });
-  }).then((chart) => {
-    // Destroy the previous chart, if any
-    if (window.myPieChart1) {
-      window.myPieChart1.destroy();
-    }
-    window.myPieChart1 = chart;
-  });
 }
 
-function buildCrimePieByGender() {
-    d3.json(url).then((crimeData) => {
+function buildCrimePieByGender(crimeData) {
       let genderCounts = {};
   
       crimeData.forEach(crime => {
@@ -160,17 +170,10 @@ function buildCrimePieByGender() {
         data: chartData,
         options: options
       });
-    }).then((chart) => {
-      // Destroy the previous chart, if any
-      if (window.myPieChart2) {
-        window.myPieChart2.destroy();
-      }
-      window.myPieChart2 = chart;
-    });
+    
 }
   
-function buildCrimePieByAge() {
-    d3.json(url).then((crimeData) => {
+function buildCrimePieByAge(crimeData) {
       let ageCounts = {};
   
       crimeData.forEach(crime => {
@@ -255,17 +258,9 @@ function buildCrimePieByAge() {
             data: chartData,
             options: options
         });
-        }).then((chart) => {
-        // Destroy the previous chart, if any
-        if (window.myPieChart3) {
-            window.myPieChart3.destroy();
         }
-        window.myPieChart3 = chart;
-    });
-}
   
-function buildCrimePieByDescent() {
-  d3.json(url).then((crimeData) => {
+function buildCrimePieByDescent(crimeData) {
     let descentCounts = {};
     let validDescents = ['H', 'B', 'W', 'A', 'X', 'Unknown'];
 
@@ -344,11 +339,6 @@ function buildCrimePieByDescent() {
       data: chartData,
       options: options
     });
-  }).then((chart) => {
-    // Destroy the previous chart, if any
-    if (window.myPieChart4) {
-      window.myPieChart4.destroy();
-    }
-    window.myPieChart4 = chart;
-  });
 }
+
+loadData()
