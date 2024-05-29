@@ -25,6 +25,16 @@ def home():
 def bar():
     return render_template('bar.html')
 
+#need to update with Roha's actual html file
+# @app.route('/pie')
+# def bar():
+#     return render_template('pie.html')
+
+# ##need to update with Ani's actual html file
+# @app.route('/time')
+# def bar():
+#     return render_template('time.html')
+
 @app.route('/data/bar_graph/<int:offset>')
 def bar_graph(offset):
     offset = offset * 150000
