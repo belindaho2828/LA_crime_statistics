@@ -224,25 +224,6 @@ function buildCrimeBarByType(area = null) {
         });
     }
 
-// Update the text container with the date range
-// function updateDateRangeText(startDate, endDate) {
-//     let dateRangeText = document.getElementById('dateRangeText');
-//     if (startDate && endDate) {
-//         dateRangeText.textContent = `Data date range: ${startDate} to ${endDate}`;
-//     } else {
-//         // Find the earliest and latest dates in the filtered dataset
-//         let dates = filteredData.map(crime => new Date(crime.dt_occurred));
-//         if (dates.length > 0) {
-//             let earliestDate = new Date(Math.min(...dates));
-//             let latestDate = new Date(Math.max(...dates));
-//             let earliestDateString = earliestDate.toDateString();
-//             let latestDateString = latestDate.toDateString();
-//             dateRangeText.textContent = `Data date range: ${earliestDateString} to ${latestDateString}`;
-//         } else {
-//             dateRangeText.textContent = 'No data available for the selected date range';
-//         }
-//     }
-// }
 
 //text container w/ total number of crimes
 function updateTotalCrimesText() {
