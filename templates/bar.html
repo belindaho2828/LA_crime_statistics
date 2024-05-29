@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Bar Visualization</title>
+    <!-- D3 library -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <!-- Plotly library -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <!-- Link to CSS file -->
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/styles.css') }}">
+    <style>
+      #totalCrimesText {
+          border: 2px solid black;
+          padding: 20px;
+          margin: 20px 0;
+          font-size: 24px;
+          text-align: center;
+          background-color: #f9f9f9;
+      }
+  </style>
+
+  </head>
+  <body>
+    <h1>What Type of Crimes are Happening in LA and Where?</h1>
+    <p>Click on the bars in each chart to enable filtering for the other. For example, click on an area in the top chart and see count of crimes by type in that area on the bottom chart</p> 
+    <button id = 'resetButton'>Reset Filters</button>
+    <label for = 'startDate'>Start Date:</label> 
+    <input type = 'date' id = 'startDate'>
+    <label for= 'endDate'>End Date:</label>
+    <input type = 'date' id = 'endDate'>
+    <div id ='totalCrimesText'></div>
+    <div id = 'dateRangeText'></div>
+    <div id='bar'></div>
+    <div id='barbyType'></div>
+    <script src="{{ url_for('static', filename='js/bar.js') }}"></script>
+
+
+
+
+
+  </body>
+</html>
