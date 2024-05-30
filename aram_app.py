@@ -1,5 +1,7 @@
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, render_template, jsonify, request
 import requests
+from sqlalchemy import create_engine, text, inspect
+import psycopg2
 
 app = Flask(__name__)
 
@@ -10,6 +12,26 @@ CRIME_DATA_COUNT_URL = 'https://data.lacity.org/resource/2nrs-mtv8.json?$select=
 @app.route('/')
 def home():
     return render_template('index.html')
+
+@app.route('/data/map/<int:offset>')
+def map_data(offset):
+    offset = offset * 100000
+    conn = psycopg2.connect(
+        dbname="la_crimes_db",
+        user="postgres",
+        password="postgres",
+        host="localhost",
+        port="5432"
+    )
+    with conn.cursor() as cur:
+        #area_name, latitude, longitude, crime_description, dt_occurred, time_occ, weapon_desc
+        cur.execute("SELECT area_name, lat, lon, crime_description, dt_occurred, time_occ, weapon_desc FROM crimes_table LIMIT 100000 OFFSET %s", (offset,))
+        data = cur.fetchall()
+        columns = [desc[0] for desc in cur.description]
+        data_kv = []
+        for row in data:
+            data_kv.append(dict(zip(columns, row)))
+    return jsonify(data_kv)
 
 @app.route('/crime-data')
 def crime_data_endpoint():
