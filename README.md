@@ -51,6 +51,7 @@ LAPD OpenData: https://catalog.data.gov/dataset/crime-data-from-2020-to-present
 2. Install the required Python packages:
     pip install flask requests
     pip install psycopg2-binary
+    pip install flask-cors
 
 3. Script is listed for default local host 5432
 
