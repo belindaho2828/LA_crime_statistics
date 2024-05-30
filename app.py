@@ -166,7 +166,7 @@ def data_page():
     return render_template('data.html')
 
 
-@app.route('/data')
+@app.route('/data_original')
 def get_data(): 
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 1000, type = int) #set limit per page

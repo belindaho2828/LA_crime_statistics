@@ -2,7 +2,7 @@ let currentPage = 1;
 const perPage = 1000;
 
 async function fetchData(page) {
-    const response = await fetch(`/data?page=${page}&per_page=${perPage}`);
+    const response = await fetch(`/data_original?page=${page}&per_page=${perPage}`);
     const data = await response.json();
     displayData(data);
 }
