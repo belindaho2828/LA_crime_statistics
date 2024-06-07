@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crime Data</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(to bottom, #d3d3d3, #f5f5f5);
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            margin-top: 20px;
+            color: #333;
+        }
+        label {
+            margin: 10px 0;
+        }
+        input, select, button {
+            padding: 10px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #001f3f;
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 5px #999;
+            transition: all 0.3s;
+        }
+        button:hover {
+            background-color: #005f99;
+        }
+        button:active {
+            background-color: #005f99;
+            box-shadow: 0 2px #666;
+            transform: translateY(4px);
+        }
+        #map {
+            height: 85vh;
+            width: 100%;
+            margin-top: 20px;
+        }
+        #chart-container {
+            width: 80%;
+            margin: 20px auto;
+        }
+        canvas {
+            margin: 20px 0;
+        }
+        .legend {
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            line-height: 1.5;
+            color: #333;
+            resize: both;
+            overflow: auto;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+        }
+        .pagination-controls {
+            margin: 10px 0;
+            text-align: center;
+        }
+        .view-toggle-buttons {
+            margin: 10px;
+            text-align: center;
+        }
+        .draggable {
+            cursor: move;
+        }
+    </style>
+</head>
+<body>
+    <h1>Crime Data Los Angeles County</h1>
+    <label for="startDate">Start Date:</label>
+    <input type="date" id="startDate">
+    <label for="endDate">End Date:</label>
+    <input type="date" id="endDate">
+    <button id="getCrimeDataBtn">Get Crime Data</button>
+    
+    <label for="cityFilter">Filter by City:</label>
+    <select id="cityFilter">
+        <option value="">Select City</option>
+    </select>
+    <button id="filterByCityBtn">Filter by City</button>
+    
+    <label for="crimeTypeFilter">Filter by Crime Type:</label>
+    <select id="crimeTypeFilter">
+        <option value="">Select Crime Type</option>
+    </select>
+    <button id="filterByCrimeTypeBtn">Filter by Crime Type</button>
+
+    <details>
+        <summary>Crime Data</summary>
+        <div id="crimeData"></div>
+    </details>
+
+    <div class="pagination-controls">
+        <button id="prevPageBtn">Previous Page</button>
+        <span id="pageInfo"></span>
+        <button id="nextPageBtn">Next Page</button>
+    </div>
+
+    <div class="view-toggle-buttons">
+        <button id="dayViewBtn">Daytime View</button>
+        <button id="nightViewBtn">Nighttime View</button>
+    </div>
+    
+    <div id="map"></div>
+
+    <div id="chart-container">
+        <canvas id="sampleChart"></canvas>
+    </div>
+
+    <div id="legendContainer" class="legend draggable">
+        <button id="toggleLegend">−</button>
+        <div id="legendContent">
+            <h4>Crime Data Legend</h4>
+            <p>Click on a crime type to view more information.</p>
+        </div>
+    </div>
+
+    <script>
+        let crimeData = [];
+        let filteredCrimeData = [];
+        let crimeStats = {};
+        let uniqueCities = new Set();
+        let uniqueCrimeTypes = new Set();
+        let currentPage = 1;
+        let totalPages = 1;
+        let selectedCrimeTypes = new Set();
+        let dayTileLayer, nightTileLayer;
+        let map;
+       const urls = [
+          'http://127.0.0.1:5000/data/map/0',
+          'http://127.0.0.1:5000/data/map/1',
+          'http://127.0.0.1:5000/data/map/2',
+          'http://127.0.0.1:5000/data/map/3',
+          'http://127.0.0.1:5000/data/map/4',
+          'http://127.0.0.1:5000/data/map/5',
+          'http://127.0.0.1:5000/data/map/6',
+          'http://127.0.0.1:5000/data/map/7',
+          'http://127.0.0.1:5000/data/map/8',
+          'http://127.0.0.1:5000/data/map/9'
+        ];
+        Promise.all(urls.map(url => fetch(url)))
+          .then(responses => Promise.all(responses.map(response => response.json())))
+          .then(dataArray => {
+            // dataArray is an array of arrays, where each inner array is the data from one URL
+            const combinedData = dataArray.flat(); // flatten the array of arrays into a single array
+            // process the combined data here
+            console.log(combinedData);
+          })
+          .catch(error => {
+            console.error(error);
+          });
+        
+        // Initialize the map
+        function initMap() {
+            map = L.map('map').setView([34.0522, -118.2437], 10); // Centered on Los Angeles
+
+            // Daytime tile layer to the map
+            dayTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            // Define nighttime tile layer
+            nightTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a>'
+            });
+
+            // Draggable legend to the map
+            var legend = L.control({ position: 'bottomright' });
+
+            legend.onAdd = function (map) {
+                var div = L.DomUtil.create('div', 'legend draggable');
+                div.innerHTML += '<h4>Crime Data Legend</h4>';
+                div.innerHTML += '<p>Click on a crime type to view more information.</p>';
+                return div;
+            };
+
+            legend.addTo(map);
+        }
+
+        // Toggle to daytime view
+        document.getElementById('dayViewBtn').addEventListener('click', function() {
+            map.removeLayer(nightTileLayer);
+            map.addLayer(dayTileLayer);
+        });
+
+        // Toggle to nighttime view
+        document.getElementById('nightViewBtn').addEventListener('click', function() {
+            map.removeLayer(dayTileLayer);
+            map.addLayer(nightTileLayer);
+        });
+
+        // Color for each crime type
+        function getColor(crimeType) {
+            const colors = [
+                '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'
+            ];
+            const crimeTypes = Array.from(new Set(crimeData.map(crime => crime.crm_cd_desc)));
+            const index = crimeTypes.indexOf(crimeType);
+            return colors[index % colors.length];
+        }
+
+        // Update legend
+        function updateLegend() {
+            const legendDiv = document.getElementById('legendContent');
+            legendDiv.innerHTML = '<h4>Crime Data Legend</h4><p>Click on a crime type to view more information.</p>'; // Reset legend
+            const crimeTypes = Array.from(new Set(filteredCrimeData.map(crime => crime.crm_cd_desc)));
+            crimeTypes.forEach(crimeType => {
+                const color = getColor(crimeType);
+                const item = document.createElement('div');
+                item.className = 'legend-item';
+                item.innerHTML = `<input type="checkbox" checked data-crime-type="${crimeType}" /><div class="legend-color" style="background: ${color};"></div>${crimeType} (${crimeStats[crimeType] || 0})`;
+                item.addEventListener('change', () => toggleCrimeType(crimeType));
+                legendDiv.appendChild(item);
+            });
+        }
+
+        // Toggle crime type visibility
+        function toggleCrimeType(crimeType) {
+            if (selectedCrimeTypes.has(crimeType)) {
+                selectedCrimeTypes.delete(crimeType);
+            } else {
+                selectedCrimeTypes.add(crimeType);
+            }
+            populateMap();
+        }
+
+        // Show crime info
+        function showCrimeInfo(crimeType) {
+            const crimeCount = crimeStats[crimeType];
+            alert(`Crime Type: ${crimeType}\nNumber of Incidents: ${crimeCount}`);
+        }
+
+        // Format time
+        function formatTime(timeStr) {
+            if (timeStr.length !== 4) return timeStr;
+            const hours = parseInt(timeStr.substring(0, 2));
+            const minutes = timeStr.substring(2);
+            const suffix = hours >= 12 ? 'PM' : 'AM';
+            const formattedHours = ((hours + 11) % 12 + 1);
+            return `${formattedHours}:${minutes} ${suffix}`;
+        }
+
+        // Format date
+        function formatDate(dateStr) {
+            return dateStr.split('T')[0]; // Remove "T00:00:00.000" part
+        }
+
+        // Filter crime data by date range
+        function filterCrimeData(startDate, endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            filteredCrimeData = crimeData.filter(crime => {
+                const crimeDate = new Date(crime.date_occ);
+                return crimeDate >= start && crimeDate <= end;
+            });
+            crimeStats = filteredCrimeData.reduce((counts, crime) => {
+                counts[crime.crm_cd_desc] = (counts[crime.crm_cd_desc] || 0) + 1;
+                return counts;
+            }, {});
+            updateLegend();
+            populateMap();
+        }
+
+        // Populate city dropdown
+        function populateCityDropdown() {
+            const cityFilter = document.getElementById('cityFilter');
+            uniqueCities.forEach(city => {
+                const option = document.createElement('option');
+                option.value = city;
+                option.text = city;
+                cityFilter.appendChild(option);
+            });
+        }
+
+        // Populate crime type dropdown
+        function populateCrimeTypeDropdown() {
+            const crimeTypeFilter = document.getElementById('crimeTypeFilter');
+            uniqueCrimeTypes.forEach(crimeType => {
+                const option = document.createElement('option');
+                option.value = crimeType;
+                option.text = crimeType;
+                crimeTypeFilter.appendChild(option);
+            });
+        }
+
+        // Filter crime data by city
+        function filterCrimeDataByCity(city) {
+            if (city) {
+                filteredCrimeData = crimeData.filter(crime => crime.area_name === city);
+            } else {
+                filteredCrimeData = crimeData;
+            }
+            crimeStats = filteredCrimeData.reduce((counts, crime) => {
+                counts[crime.crm_cd_desc] = (counts[crime.crm_cd_desc] || 0) + 1;
+                return counts;
+            }, {});
+            updateLegend();
+            populateMap();
+        }
+
+        // Filter crime data by crime type
+        function filterCrimeDataByType(crimeType) {
+            if (crimeType) {
+                filteredCrimeData = crimeData.filter(crime => crime.crm_cd_desc === crimeType);
+            } else {
+                filteredCrimeData = crimeData;
+            }
+            crimeStats = filteredCrimeData.reduce((counts, crime) => {
+                counts[crime.crm_cd_desc] = (counts[crime.crm_cd_desc] || 0) + 1;
+                return counts;
+            }, {});
+            updateLegend();
+            populateMap();
+        }
+
+        document.getElementById('getCrimeDataBtn').addEventListener('click', function() {
+            fetchCrimeDataCount().then(total => {
+                totalPages = Math.ceil(total / 1000);
+                currentPage = 1;
+                fetchPagedCrimeData(currentPage);
+            });
+        });
+
+        function fetchCrimeDataCount() {
+            return fetch('/crime-data-count')
+                .then(response => response.json())
+                .then(data => data.total)
+                .catch(error => console.error('Error fetching crime data count:', error));
+        }
+
+        function fetchPagedCrimeData(page) {
+            fetch(`/paged-crime-data?page=${page}`)
+                .then(response => response.json())
+                .then(data => {
+                    crimeData = data; // Store the crime data
+                    uniqueCities = new Set(crimeData.map(crime => crime.area_name));
+                    uniqueCrimeTypes = new Set(crimeData.map(crime => crime.crm_cd_desc));
+                    populateCityDropdown();
+                    populateCrimeTypeDropdown();
+                    filteredCrimeData = crimeData;
+                    crimeStats = crimeData.reduce((counts, crime) => {
+                        counts[crime.crm_cd_desc] = (counts[crime.crm_cd_desc] || 0) + 1;
+                        return counts;
+                    }, {});
+                    selectedCrimeTypes = new Set(uniqueCrimeTypes);
+                    updateLegend();
+                    populateMap();
+
+                    let crimeDataDiv = document.getElementById('crimeData');
+                    crimeDataDiv.innerHTML = '<pre>' + JSON.stringify(filteredCrimeData, null, 2) + '</pre>';
+
+                    updatePageInfo();
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function updatePageInfo() {
+            document.getElementById('pageInfo').innerText = `Page ${currentPage} of ${totalPages}`;
+        }
+
+        document.getElementById('filterByCityBtn').addEventListener('click', function() {
+            const selectedCity = document.getElementById('cityFilter').value;
+            filterCrimeDataByCity(selectedCity);
+        });
+
+        document.getElementById('filterByCrimeTypeBtn').addEventListener('click', function() {
+            const selectedCrimeType = document.getElementById('crimeTypeFilter').value;
+            filterCrimeDataByType(selectedCrimeType);
+        });
+
+        document.getElementById('prevPageBtn').addEventListener('click', function() {
+            if (currentPage > 1) {
+                currentPage--;
+                fetchPagedCrimeData(currentPage);
+                updatePageInfo();
+            }
+        });
+
+        document.getElementById('nextPageBtn').addEventListener('click', function() {
+            if (currentPage < totalPages) {
+                currentPage++;
+                fetchPagedCrimeData(currentPage);
+                updatePageInfo();
+            }
+        });
+
+        function populateMap() {
+            // Clear existing markers
+            map.eachLayer(function (layer) {
+                if (layer instanceof L.Marker) {
+                    map.removeLayer(layer);
+                }
+            });
+
+            // Markers to the map
+            filteredCrimeData.forEach(function(crime) {
+                if (crime.lat && crime.lon && selectedCrimeTypes.has(crime.crm_cd_desc)) {
+                    const lat = parseFloat(crime.lat);
+                    const lon = parseFloat(crime.lon);
+                    const color = getColor(crime.crm_cd_desc);
+                    const time = formatTime(crime.time_occ);
+                    const date = formatDate(crime.date_occ);
+                    const weaponDesc = crime.weapon_desc || 'Null'; // Default to "Null" if no weapon description
+
+                    // Debug output: Check parsed coordinates
+                    console.log(`Adding marker at lat: ${lat}, lon: ${lon}, color: ${color}, time: ${time}`);
+
+                    L.marker([lat, lon], {
+                        icon: L.divIcon({ 
+                            className: 'marker', 
+                            html: `<i style="background: ${color}; border-radius: 50%; width: 10px; height: 10px; display: block;"></i>` 
+                        })
+                    }).addTo(map)
+                    .bindPopup(`Crime: ${crime.crm_cd_desc}<br>Date: ${date}<br>Time: ${time}<br>Weapon: ${weaponDesc}`);
+                } else {
+                    console.warn('Missing coordinates for crime:', crime);
+                }
+            });
+        }
+
+        // Dragging functionality for the legend
+        function makeLegendDraggable() {
+            const legend = document.getElementById('legendContainer');
+            let isDragging = false;
+            let offsetX, offsetY;
+
+            legend.addEventListener('mousedown', function(e) {
+                isDragging = true;
+                offsetX = e.clientX - parseInt(window.getComputedStyle(legend).left);
+                offsetY = e.clientY - parseInt(window.getComputedStyle(legend).top);
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+
+            function onMouseMove(e) {
+                if (isDragging) {
+                    legend.style.left = (e.clientX - offsetX) + 'px';
+                    legend.style.top = (e.clientY - offsetY) + 'px';
+                }
+            }
+
+            function onMouseUp() {
+                isDragging = false;
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+            }
+        }
+
+        // Toggle legend visibility
+        document.getElementById('toggleLegend').addEventListener('click', function() {
+            const legendContent = document.getElementById('legendContent');
+            if (legendContent.style.display === 'none') {
+                legendContent.style.display = 'block';
+                this.textContent = '−';
+            } else {
+                legendContent.style.display = 'none';
+                this.textContent = '+';
+            }
+        });
+
+        // Initialize map & legend
+        initMap();
+        makeLegendDraggable();
+    </script>
+</body>
+</html>
